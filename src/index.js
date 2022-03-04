@@ -1,6 +1,5 @@
-const { verify } = require('crypto');
 const express = require('express');
-const { v4 } = require('uuid');
+const res = require('express/lib/response');
 
 require('dotenv').config();
 
@@ -11,7 +10,6 @@ const PORT = process.env.PORT || 3333;
 const customers = [];
 
 app.use(express.json());
-
 
 // middlewares
 function verifyIfExisstAccount(req, res, next) {
@@ -24,44 +22,45 @@ function verifyIfExisstAccount(req, res, next) {
         return res.status(400).json({error: 'Customer not found!'})
     }
 
-    req.customer = customer
+    req.customer = customer;
 
-    next();
+    return next();
 };
 
-function getBalance(statement) {
-    
+ function getBalance(statement) {
 
-        const balance = statement.reduce((acc, operation) => {
+         const balance = statement.reduce((acc, operation) => {
             if(operation.type === 'credit') {
-                acc + operation.amount;
+               return acc + operation.amount;
             } else {
-                acc - operation.amount;
+               return acc - operation.amount;
             };
 
         }, 0);
 
+
         return balance;
     };
-    ;
+    
+
 
 // Routes
 app.post('/account', (req, res) => {
     const { cpf, name } = req.body;
-
+    
     const customerAlreadyExists = customers.some((customer) => customer.cpf === cpf);
-
+    
     if(customerAlreadyExists) {
         return res.status(400).json({error: 'Customer already exists!'})
     };
     
-
+    
     customers.push({
         cpf,
         name,
         uuid: uuidv4(),
         statement: [],
-
+        
     })
     
     return res.status(201).json()
@@ -74,39 +73,39 @@ app.get('/customers', (req, res) => {
 
 app.get('/statement', verifyIfExisstAccount, (req, res) => {
     const { customer } = req;
-
+    
     res.status(200).json(customer.statement);
 });
 
 app.post('/deposit', verifyIfExisstAccount, (req, res) => {
-    const { amount, description } = req.body;
-
+    const { description, amount } = req.body;
+    
     const { customer } = req;
-
-    const statement = {
-        amount,
+    
+    const statementOperation = {
         description,
+        amount,
         created_at: new Date(),
         type: 'credit',
     };
-
-    customer.statement.push(statement);
-
-    res.status(201).json('OK!')
+    
+    customer.statement.push(statementOperation);
+    
+    return res.status(201).json('OK!')
 });
 
 app.post('/withdraw', verifyIfExisstAccount, (req, res) => {
-
+    
     const { amount } = req.body;
-
+    
     const { customer } = req;
-
+    
     const balance = getBalance(customer.statement);
     
     if(balance < amount){
         return res.status(400).json({error: 'Insufficient funds!'});
     }
-
+    
     const statementOperation = {
         amount,
         type: 'debit',
@@ -125,12 +124,11 @@ app.get('/statement/date', verifyIfExisstAccount, (req, res) => {
 
     const dateFormat = new Date(date + ' 00:00');
 
-    const statement = customer.statement.filter(
-        (statement) => statement.created_at.toDateString() === new Date(dateFormat).toDateString());
+    const statement = customer.statement.filter((statement) => statement.created_at.toDateString() === new Date(dateFormat).toDateString());
 
     return res.json(statement);
 
-
+    
 });
 
 app.put('/account', verifyIfExisstAccount, (req, res) => {
@@ -161,16 +159,19 @@ app.delete('/account', verifyIfExisstAccount, (req, res) => {
     res.status(200).json(customers);
 });
 
+
 app.get('/balance', verifyIfExisstAccount, (req, res) => {
 
     const { customer } = req;
-
-    const balance = getBalance(customer.statement);
-
+    
+    const  balance = getBalance(customer.statement);
+    
     return res.json(balance);
 });
 
+
+
 app.listen(PORT, () => {
     console.log(`Server is running in http://localhost:${PORT}`)
-})
+}) ;   
 
